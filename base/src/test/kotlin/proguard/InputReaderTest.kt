@@ -15,6 +15,7 @@ import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import proguard.io.DataEntry
 import proguard.io.DataEntryReader
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -106,7 +107,16 @@ class InputReaderTest : FreeSpec({
             Files.createDirectories(dest.parent)
             // Some of the copied files are > 100 MB; for better performance just create a hardlink instead
             // of copying file contents
-            Files.createLink(dest, source)
+            try {
+                Files.createLink(dest, source)
+            } catch (_: IOException) {
+                // If creating hardlink fails (e.g. on Linux with "Invalid cross-device link") try creating a
+                // symlink instead
+                // Only do this as fallback, because (1) on Windows symlinks require admin permissions / developer
+                // mode and (2) whether the JDK jrt file system follows symlinks is an implementation detail and
+                // could break in the future
+                Files.createSymbolicLink(dest, source)
+            }
         }
 
         // Create a dummy JAVA_HOME without jmods
