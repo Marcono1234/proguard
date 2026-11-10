@@ -96,7 +96,7 @@ class InputReaderTest : FreeSpec({
     }
 
     "Given a JDK without jmods" - {
-        fun createHardLink(sourceDir: Path, destDir: Path, pathPieces: List<String>) {
+        fun createLink(sourceDir: Path, destDir: Path, pathPieces: List<String>) {
             val source = pathPieces.fold(sourceDir, Path::resolve)
             val dest = pathPieces.fold(destDir, Path::resolve)
 
@@ -105,8 +105,6 @@ class InputReaderTest : FreeSpec({
             require(Files.isRegularFile(source))
 
             Files.createDirectories(dest.parent)
-            // Some of the copied files are > 100 MB; for better performance just create a hardlink instead
-            // of copying file contents
             try {
                 Files.createLink(dest, source)
             } catch (_: IOException) {
@@ -122,11 +120,14 @@ class InputReaderTest : FreeSpec({
         // Create a dummy JAVA_HOME without jmods
         // Note: Most likely this tempdir will not be fully cleaned up (at least on Windows) because internally
         // the JDK creates an additional URLClassLoader in JrtFileSystemProvider#newJrtFsLoader and does not close it
-        // when the FileSystem is closed; at least the tempdir only contains hardlinks and only takes up little space
+        // when the FileSystem is closed; at least the tempdir only contains links (and not actual copies, see below)
+        // and only takes up little space
         val customJavaHome = tempdir().toPath()
         // Copy only the files needed to make it look like a JDK without jmod files
-        createHardLink(javaHome, customJavaHome, listOf("lib", "jrt-fs.jar"))
-        createHardLink(javaHome, customJavaHome, listOf("lib", "modules"))
+        // Some of the copied files are > 100 MB; for better performance just create a link instead of
+        // copying file contents
+        createLink(javaHome, customJavaHome, listOf("lib", "jrt-fs.jar"))
+        createLink(javaHome, customJavaHome, listOf("lib", "modules"))
 
         /** Entry for `java.lang.String` in the `java.base` module  */
         val javaBaseEntryString = "java/lang/String.class"
